@@ -40,134 +40,159 @@ const revealObserver = new IntersectionObserver((entries) => {
 }, { threshold: 0.12 });
 revealTargets.forEach((el) => revealObserver.observe(el));
 
-// Hero: raymarched signed-distance-field scene with soft shadows and AO
+// Hero: 2D lighting with a 1D radial shadow map. The pointer is the light source.
+// Pass 1 marches one ray per angle from the light and stores the distance to the
+// first occluder in a 1024x1 texture. Pass 2 lights each pixel by comparing its
+// distance to the light against that map, blurred by distance for soft penumbras.
 (function heroShader() {
   const canvas = document.getElementById('hero-canvas');
   const gl = canvas.getContext('webgl', { antialias: false, alpha: false });
   if (!gl) return;
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const ANGLES = 1024;
 
   const vert = `
     attribute vec2 aPos;
     void main() { gl_Position = vec4(aPos, 0.0, 1.0); }
   `;
 
-  const frag = `
+  // Scene shared by both passes. Units: 1.0 = canvas height, origin at centre.
+  const common = `
     precision highp float;
     uniform vec2 uRes;
     uniform float uTime;
-    uniform vec2 uMouse;
+    uniform vec2 uLight;
+    const float MAXD = 3.0;
+    const float TAU = 6.2831853;
 
-    float sdSphere(vec3 p, float r) { return length(p) - r; }
-    float sdTorus(vec3 p, vec2 t) { vec2 q = vec2(length(p.xz) - t.x, p.y); return length(q) - t.y; }
-    float smin(float a, float b, float k) {
-      float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
-      return mix(b, a, h) - k * h * (1.0 - h);
-    }
     mat2 rot(float a) { float c = cos(a), s = sin(a); return mat2(c, -s, s, c); }
+    float sdCircle(vec2 p, float r) { return length(p) - r; }
+    float sdBox(vec2 p, vec2 b) {
+      vec2 d = abs(p) - b;
+      return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
+    }
+    float sdTri(vec2 p, float r) {
+      const float k = 1.7320508;
+      p.x = abs(p.x) - r;
+      p.y = p.y + r / k;
+      if (p.x + k * p.y > 0.0) p = vec2(p.x - k * p.y, -k * p.x - p.y) / 2.0;
+      p.x -= clamp(p.x, -2.0 * r, 0.0);
+      return -length(p) * sign(p.y);
+    }
 
-    // x = distance, y = material id
-    vec2 map(vec3 p) {
+    float sceneSDF(vec2 p);
+    float map(vec2 p) {
+      // Push the scene right on wide screens so copy sits over open floor;
+      // shrink it on portrait screens so it still fits across the width
+      float aspect = uRes.x / uRes.y;
+      p.x -= clamp((aspect - 1.0) * 0.6, 0.0, 0.45);
+      float s = clamp(aspect * 1.2, 0.55, 1.0);
+      return sceneSDF(p / s) * s;
+    }
+
+    float sceneSDF(vec2 p) {
       float t = uTime;
-      vec3 q = p - vec3(0.0, 1.0, 0.0);
-      q.xz *= rot(t * 0.3);
-      q.xy *= rot(0.5);
-      float tor = sdTorus(q, vec2(0.9, 0.22));
-      float s1 = sdSphere(p - vec3(sin(t * 0.7) * 1.1, 1.0 + sin(t * 0.9) * 0.35, cos(t * 0.7) * 1.1), 0.42);
-      float s2 = sdSphere(p - vec3(cos(t * 0.5) * 0.6, 1.0 + cos(t * 1.1) * 0.5, sin(t * 0.5) * 0.6), 0.32);
-      float blob = smin(tor, smin(s1, s2, 0.35), 0.35);
-      float ground = p.y;
-      return ground < blob ? vec2(ground, 0.0) : vec2(blob, 1.0);
-    }
 
-    vec3 normal(vec3 p) {
-      vec2 e = vec2(0.001, 0.0);
-      return normalize(vec3(
-        map(p + e.xyy).x - map(p - e.xyy).x,
-        map(p + e.yxy).x - map(p - e.yxy).x,
-        map(p + e.yyx).x - map(p - e.yyx).x));
-    }
+      float d = sdBox(rot(t * 0.25) * (p - vec2(-0.04, 0.16)), vec2(0.085));
 
-    float softShadow(vec3 ro, vec3 rd) {
-      float res = 1.0, t = 0.02;
-      for (int i = 0; i < 32; i++) {
-        float h = map(ro + rd * t).x;
-        res = min(res, 10.0 * h / t);
-        t += clamp(h, 0.02, 0.25);
-        if (res < 0.002 || t > 6.0) break;
+      // Ring with a rotating gap that sweeps a beam of light around
+      vec2 rp = rot(t * 0.4) * (p - vec2(0.24, -0.14));
+      float ring = abs(length(rp) - 0.12) - 0.016;
+      ring = max(ring, -sdBox(rp - vec2(0.12, 0.0), vec2(0.04, 0.035)));
+      d = min(d, ring);
+
+      d = min(d, sdTri(rot(-t * 0.3) * (p - vec2(0.3, 0.27)), 0.055));
+      d = min(d, sdCircle(p - vec2(-0.26, -0.17 + sin(t * 0.6) * 0.03), 0.065));
+
+      // Drifting pillars cast long thin shadows
+      for (int i = 0; i < 7; i++) {
+        float fi = float(i);
+        vec2 c = vec2(sin(fi * 2.4 + t * 0.07) * 0.42, cos(fi * 1.7 + t * 0.09) * 0.36);
+        d = min(d, sdCircle(p - c, 0.012 + 0.006 * fract(fi * 0.618)));
       }
-      return clamp(res, 0.0, 1.0);
+      return d;
     }
+  `;
 
-    float ambientOcclusion(vec3 p, vec3 n) {
-      float occ = 0.0, w = 1.0;
-      for (int i = 1; i <= 5; i++) {
-        float h = 0.03 * float(i) + 0.02;
-        occ += (h - map(p + n * h).x) * w;
-        w *= 0.7;
+  const shadowFrag = common + `
+    void main() {
+      float a = (gl_FragCoord.x / ${ANGLES}.0) * TAU - 3.14159265;
+      vec2 dir = vec2(cos(a), sin(a));
+      float t = 0.0;
+      if (map(uLight) > 0.0) {
+        for (int i = 0; i < 96; i++) {
+          float d = map(uLight + dir * t);
+          if (d < 0.0004) break;
+          t += d;
+          if (t > MAXD) { t = MAXD; break; }
+        }
       }
-      return clamp(1.0 - 2.5 * occ, 0.0, 1.0);
+      // Pack the normalised distance into two 8-bit channels
+      vec2 enc = fract(vec2(1.0, 255.0) * min(t / MAXD, 0.99999));
+      enc.x -= enc.y / 255.0;
+      gl_FragColor = vec4(enc, 0.0, 1.0);
     }
+  `;
+
+  const lightFrag = common + `
+    uniform sampler2D uShadow;
+    uniform vec3 uColor;
+
+    float occluderAt(float u) {
+      vec4 s = texture2D(uShadow, vec2(u, 0.5));
+      return dot(s.rg, vec2(1.0, 1.0 / 255.0)) * MAXD;
+    }
+    float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
     void main() {
-      vec2 uv = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
-      // Push the scene to the right on wide screens so copy sits over empty space
-      float wide = clamp((uRes.x / uRes.y - 1.0) * 0.6, 0.0, 0.45);
-      uv.x -= wide;
+      vec2 q = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
+      vec2 d = q - uLight;
+      float r = length(d);
+      float u = atan(d.y, d.x) / TAU + 0.5;
+      float sd = map(q);
 
-      float yaw = 0.6 + uMouse.x * 0.4;
-      vec3 ro = vec3(6.5 * sin(yaw), 2.6 + uMouse.y * 0.6, 6.5 * cos(yaw));
-      vec3 ta = vec3(0.0, 0.9, 0.0);
-      vec3 ww = normalize(ta - ro);
-      vec3 uu = normalize(cross(ww, vec3(0.0, 1.0, 0.0)));
-      vec3 vv = cross(uu, ww);
-      vec3 rd = normalize(uv.x * uu + uv.y * vv + 1.8 * ww);
+      // Let the first face an occluder presents to the light catch it
+      float rr = sd < 0.0 ? r - 0.022 : r;
 
+      // Gaussian PCF along the angle; wider further out for soft penumbras
+      float blur = 0.0006 + 0.0035 * r;
+      float lit = 0.0;
+      lit += occluderAt(u - 4.0 * blur) > rr ? 0.05 : 0.0;
+      lit += occluderAt(u - 3.0 * blur) > rr ? 0.09 : 0.0;
+      lit += occluderAt(u - 2.0 * blur) > rr ? 0.12 : 0.0;
+      lit += occluderAt(u - 1.0 * blur) > rr ? 0.15 : 0.0;
+      lit += occluderAt(u)              > rr ? 0.18 : 0.0;
+      lit += occluderAt(u + 1.0 * blur) > rr ? 0.15 : 0.0;
+      lit += occluderAt(u + 2.0 * blur) > rr ? 0.12 : 0.0;
+      lit += occluderAt(u + 3.0 * blur) > rr ? 0.09 : 0.0;
+      lit += occluderAt(u + 4.0 * blur) > rr ? 0.05 : 0.0;
+
+      float falloff = 1.0 / (1.0 + r * r * 16.0);
       vec3 bg = vec3(0.043, 0.051, 0.063);
-      vec3 col = bg;
 
-      float t = 0.0;
-      vec2 hit = vec2(-1.0);
-      for (int i = 0; i < 90; i++) {
-        vec2 h = map(ro + rd * t);
-        if (h.x < 0.001) { hit = vec2(t, h.y); break; }
-        t += h.x;
-        if (t > 20.0) break;
+      // Floor: dot grid that only reads where the light lands
+      vec2 g = fract(q * 28.0) - 0.5;
+      float dots = smoothstep(0.11, 0.05, length(g));
+      vec3 col = bg + uColor * lit * falloff * (0.5 + 0.9 * dots) + dots * 0.012;
+
+      // Occluders: dark bodies, faint teal outline, rim lit on the facing side
+      float px = 1.5 / uRes.y;
+      if (sd < px) {
+        vec2 e = vec2(0.001, 0.0);
+        vec2 n = normalize(vec2(map(q + e.xy) - map(q - e.xy), map(q + e.yx) - map(q - e.yx)));
+        float facing = max(dot(n, -normalize(d)), 0.0);
+        float rim = lit * falloff * facing * smoothstep(-0.022, 0.0, sd);
+        float edge = smoothstep(0.004, 0.0, abs(sd + 0.002));
+        vec3 body = vec3(0.07, 0.08, 0.10) + uColor * rim * 2.2 + vec3(0.31, 0.82, 0.77) * edge * 0.18;
+        col = mix(col, body, smoothstep(px, -px, sd));
       }
 
-      if (hit.x > 0.0) {
-        vec3 p = ro + rd * hit.x;
-        vec3 n = normal(p);
-        vec3 l = normalize(vec3(-0.6, 0.8, 0.4));
-        vec3 h = normalize(l - rd);
-        float dif = clamp(dot(n, l), 0.0, 1.0) * softShadow(p + n * 0.01, l);
-        float ao = ambientOcclusion(p, n);
-        float fre = pow(1.0 - clamp(dot(n, -rd), 0.0, 1.0), 4.0);
+      // Light bulb glow
+      col += uColor * exp(-r * r * 900.0) * 1.2 + exp(-r * r * 9000.0);
 
-        vec3 albedo;
-        float spec = 0.0;
-        if (hit.y < 0.5) {
-          // Ground: faint grid
-          vec2 g = abs(fract(p.xz * 2.0) - 0.5);
-          float line = smoothstep(0.47, 0.5, max(g.x, g.y));
-          albedo = mix(vec3(0.08, 0.09, 0.11), vec3(0.18, 0.5, 0.48), line * 0.35);
-        } else {
-          albedo = vec3(1.0, 0.45, 0.16);
-          spec = pow(clamp(dot(n, h), 0.0, 1.0), 48.0) * dif;
-        }
-
-        vec3 lin = vec3(0.0);
-        lin += 1.6 * dif * vec3(1.0, 0.92, 0.82);
-        lin += 0.35 * ao * vec3(0.35, 0.55, 0.7) * (0.5 + 0.5 * n.y);
-        lin += 0.6 * fre * ao * vec3(0.31, 0.82, 0.77) * hit.y;
-        col = albedo * lin + spec * vec3(1.0);
-
-        col = mix(col, bg, 1.0 - exp(-0.006 * hit.x * hit.x));
-      }
-
-      col = pow(col, vec3(0.4545));
-      col *= 1.0 - 0.35 * dot(uv, uv);
+      col = 1.0 - exp(-col);
+      col += (hash(gl_FragCoord.xy) - 0.5) / 255.0;
       gl_FragColor = vec4(col, 1.0);
     }
   `;
@@ -183,44 +208,78 @@ revealTargets.forEach((el) => revealObserver.observe(el));
     return s;
   }
 
-  const vs = compile(gl.VERTEX_SHADER, vert);
-  const fs = compile(gl.FRAGMENT_SHADER, frag);
-  if (!vs || !fs) return;
-  const prog = gl.createProgram();
-  gl.attachShader(prog, vs);
-  gl.attachShader(prog, fs);
-  gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
-  gl.useProgram(prog);
+  function program(fragSrc) {
+    const vs = compile(gl.VERTEX_SHADER, vert);
+    const fs = compile(gl.FRAGMENT_SHADER, fragSrc);
+    if (!vs || !fs) return null;
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.bindAttribLocation(prog, 0, 'aPos');
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+    const u = {};
+    for (const name of ['uRes', 'uTime', 'uLight', 'uShadow', 'uColor']) {
+      u[name] = gl.getUniformLocation(prog, name);
+    }
+    return { prog, u };
+  }
+
+  const shadowPass = program(shadowFrag);
+  const lightPass = program(lightFrag);
+  if (!shadowPass || !lightPass) return;
 
   const buf = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buf);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-  const aPos = gl.getAttribLocation(prog, 'aPos');
-  gl.enableVertexAttribArray(aPos);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+  gl.enableVertexAttribArray(0);
+  gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
-  const uRes = gl.getUniformLocation(prog, 'uRes');
-  const uTime = gl.getUniformLocation(prog, 'uTime');
-  const uMouse = gl.getUniformLocation(prog, 'uMouse');
+  // 1D shadow map: one texel per angle. Packed values can't be filtered, so NEAREST.
+  const shadowTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, shadowTex);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, ANGLES, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  const fbo = gl.createFramebuffer();
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, shadowTex, 0);
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) return;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
-  // Render below native resolution; raymarching is fill-rate bound
-  const scale = Math.min(window.devicePixelRatio || 1, 1) * 0.6;
+  const scale = Math.min(window.devicePixelRatio || 1, 1.5);
   function resize() {
     const w = Math.max(1, Math.floor(canvas.clientWidth * scale));
     const h = Math.max(1, Math.floor(canvas.clientHeight * scale));
     if (canvas.width !== w || canvas.height !== h) {
       canvas.width = w;
       canvas.height = h;
-      gl.viewport(0, 0, w, h);
     }
   }
 
-  const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
-  window.addEventListener('pointermove', (e) => {
-    mouse.tx = (e.clientX / window.innerWidth) * 2 - 1;
-    mouse.ty = (e.clientY / window.innerHeight) * 2 - 1;
-  }, { passive: true });
+  // Light follows the pointer over the hero; when idle it wanders on its own
+  const light = { x: -0.3, y: 0.1, tx: -0.3, ty: 0.1, lastMove: -Infinity };
+  function pointerToScene(e) {
+    const rect = canvas.getBoundingClientRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    if (cx < 0 || cy < 0 || cx > rect.width || cy > rect.height) return;
+    light.tx = (cx - 0.5 * rect.width) / rect.height;
+    light.ty = (0.5 * rect.height - cy) / rect.height;
+    light.lastMove = performance.now();
+  }
+  window.addEventListener('pointermove', pointerToScene, { passive: true });
+  window.addEventListener('pointerdown', pointerToScene, { passive: true });
+
+  // Click empty hero space to swap between the two accent colours
+  const colors = [[1.0, 0.54, 0.24], [0.31, 0.82, 0.77]];
+  let colorIndex = 0;
+  const color = colors[0].slice();
+  canvas.parentElement.addEventListener('click', (e) => {
+    if (!e.target.closest('a, button')) colorIndex = (colorIndex + 1) % colors.length;
+  });
 
   let visible = true;
   new IntersectionObserver(([entry]) => {
@@ -231,11 +290,34 @@ revealTargets.forEach((el) => revealObserver.observe(el));
   const start = performance.now();
   function draw(time) {
     resize();
-    mouse.x += (mouse.tx - mouse.x) * 0.05;
-    mouse.y += (mouse.ty - mouse.y) * 0.05;
-    gl.uniform2f(uRes, canvas.width, canvas.height);
-    gl.uniform1f(uTime, time);
-    gl.uniform2f(uMouse, mouse.x, mouse.y);
+    if (performance.now() - light.lastMove > 2500) {
+      const aspect = canvas.width / canvas.height;
+      light.tx = Math.sin(time * 0.23) * 0.3 * aspect + 0.15;
+      light.ty = Math.sin(time * 0.37) * 0.25;
+    }
+    const k = reducedMotion ? 1 : 0.12;
+    light.x += (light.tx - light.x) * k;
+    light.y += (light.ty - light.y) * k;
+    const target = colors[colorIndex];
+    for (let i = 0; i < 3; i++) color[i] += (target[i] - color[i]) * 0.08;
+
+    gl.useProgram(shadowPass.prog);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.viewport(0, 0, ANGLES, 1);
+    gl.uniform2f(shadowPass.u.uRes, canvas.width, canvas.height);
+    gl.uniform1f(shadowPass.u.uTime, time);
+    gl.uniform2f(shadowPass.u.uLight, light.x, light.y);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    gl.useProgram(lightPass.prog);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.bindTexture(gl.TEXTURE_2D, shadowTex);
+    gl.uniform1i(lightPass.u.uShadow, 0);
+    gl.uniform2f(lightPass.u.uRes, canvas.width, canvas.height);
+    gl.uniform1f(lightPass.u.uTime, time);
+    gl.uniform2f(lightPass.u.uLight, light.x, light.y);
+    gl.uniform3fv(lightPass.u.uColor, color);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
@@ -246,8 +328,11 @@ revealTargets.forEach((el) => revealObserver.observe(el));
   }
 
   if (reducedMotion) {
-    draw(2.0);
-    window.addEventListener('resize', () => draw(2.0));
+    // Static scene, but the light still tracks the pointer on demand
+    const redraw = () => draw(2.0);
+    redraw();
+    window.addEventListener('resize', redraw);
+    window.addEventListener('pointermove', redraw, { passive: true });
   } else {
     requestAnimationFrame(frame);
   }
