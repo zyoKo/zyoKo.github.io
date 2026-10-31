@@ -6,6 +6,27 @@ onScroll();
 
 document.getElementById('year').textContent = new Date().getFullYear();
 
+// Project cards, rendered from projects.js
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+document.querySelectorAll('[data-project-group]').forEach((grid) => {
+  grid.innerHTML = (window.PROJECTS || [])
+    .filter((p) => p.group === grid.dataset.projectGroup)
+    .map((p) => `
+      <a class="card card--link" href="project.html?id=${encodeURIComponent(p.id)}">
+        <div class="card__thumb${p.thumb ? '' : ' card__thumb--empty'}">
+          ${p.thumb ? `<img src="${esc(p.thumb)}" alt="" loading="lazy">` : `<span>${esc(p.api)}</span>`}
+        </div>
+        <div class="card__top">
+          <span class="card__kind">${esc(p.kind)}</span>
+          <span class="card__api">${esc(p.api)}</span>
+        </div>
+        <h3>${esc(p.title)}</h3>
+        <p>${esc(p.summary)}</p>
+        <ul class="tags">${p.tags.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+      </a>`)
+    .join('');
+});
+
 // Reveal sections as they enter the viewport
 const revealTargets = document.querySelectorAll('.job, .card, .skill, .edu__item');
 revealTargets.forEach((el) => el.classList.add('reveal'));
