@@ -42,15 +42,15 @@ revealTargets.forEach((el) => revealObserver.observe(el));
 
 // Hero: 2D lighting with a 1D radial shadow map. The pointer is the light source.
 // Pass 1 marches one ray per angle from the light and stores the distance to the
-// first occluder in a 1024x1 texture. Pass 2 lights each pixel by comparing its
-// distance to the light against that map, blurred by distance for soft penumbras.
+// first occluder in a 2048x1 texture. Pass 2 lights each pixel by comparing its
+// distance to the light against that map, with penumbras sized by distance to the blocker.
 (function heroShader() {
   const canvas = document.getElementById('hero-canvas');
   const gl = canvas.getContext('webgl', { antialias: false, alpha: false });
   if (!gl) return;
 
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const ANGLES = 1024;
+  const ANGLES = 2048;
 
   const vert = `
     attribute vec2 aPos;
@@ -138,10 +138,20 @@ revealTargets.forEach((el) => revealObserver.observe(el));
   const lightFrag = common + `
     uniform sampler2D uShadow;
     uniform vec3 uColor;
+    const float LIGHT_SIZE = 0.05;
 
     float occluderAt(float u) {
       vec4 s = texture2D(uShadow, vec2(u, 0.5));
       return dot(s.rg, vec2(1.0, 1.0 / 255.0)) * MAXD;
+    }
+    // Shadow test with linear interpolation between the two nearest angles, so
+    // edges stay smooth however small the blur gets (the map itself is NEAREST)
+    float litAt(float u, float rr) {
+      float x = u * ${ANGLES}.0 - 0.5;
+      float u0 = (floor(x) + 0.5) / ${ANGLES}.0;
+      float a = step(rr, occluderAt(u0));
+      float b = step(rr, occluderAt(u0 + 1.0 / ${ANGLES}.0));
+      return mix(a, b, fract(x));
     }
     float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
@@ -155,18 +165,40 @@ revealTargets.forEach((el) => revealObserver.observe(el));
       // Let the first face an occluder presents to the light catch it
       float rr = sd < 0.0 ? r - 0.022 : r;
 
-      // Gaussian PCF along the angle; wider further out for soft penumbras
-      float blur = 0.0006 + 0.0035 * r;
-      float lit = 0.0;
-      lit += occluderAt(u - 4.0 * blur) > rr ? 0.05 : 0.0;
-      lit += occluderAt(u - 3.0 * blur) > rr ? 0.09 : 0.0;
-      lit += occluderAt(u - 2.0 * blur) > rr ? 0.12 : 0.0;
-      lit += occluderAt(u - 1.0 * blur) > rr ? 0.15 : 0.0;
-      lit += occluderAt(u)              > rr ? 0.18 : 0.0;
-      lit += occluderAt(u + 1.0 * blur) > rr ? 0.15 : 0.0;
-      lit += occluderAt(u + 2.0 * blur) > rr ? 0.12 : 0.0;
-      lit += occluderAt(u + 3.0 * blur) > rr ? 0.09 : 0.0;
-      lit += occluderAt(u + 4.0 * blur) > rr ? 0.05 : 0.0;
+      // Blocker search around this pixel's angle. Weighted average distance of the
+      // occluders in front of it, plus how much of the search they cover; both
+      // change smoothly as taps cross shadow edges, so the blur size doesn't jump
+      float blockSum = 0.0, blockW = 0.0, totalW = 0.0;
+      for (int k = -3; k <= 3; k++) {
+        float w = exp(-0.15 * float(k * k));
+        float h = occluderAt(u + float(k) * 0.004);
+        float inFront = step(h, rr);
+        blockSum += h * w * inFront;
+        blockW += w * inFront;
+        totalW += w;
+      }
+
+      // Gaussian PCF along the angle. The penumbra grows with distance behind the
+      // blocker (PCSS), so a shadow starts crisp at its occluder and softens further
+      // back. Taps stay at most 3 texels apart so they blend instead of banding.
+      float lit;
+      if (blockW == 0.0) {
+        lit = 1.0;
+      } else if (blockW == totalW) {
+        lit = 0.0;
+      } else {
+        float blocker = blockSum / blockW;
+        float penumbra = LIGHT_SIZE * max(rr - blocker, 0.0) / max(blocker, 0.02);
+        float span = 1.5 + min(penumbra / (TAU * rr) * ${ANGLES}.0, 22.5) * (blockW / totalW);
+        float spacing = span / 8.0 / ${ANGLES}.0;
+        float sum = 0.0, wsum = 0.0;
+        for (int k = -8; k <= 8; k++) {
+          float w = exp(-float(k * k) / 32.0);
+          sum += litAt(u + float(k) * spacing, rr) * w;
+          wsum += w;
+        }
+        lit = sum / wsum;
+      }
 
       float falloff = 1.0 / (1.0 + r * r * 16.0);
       vec3 bg = vec3(0.043, 0.051, 0.063);
