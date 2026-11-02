@@ -259,8 +259,10 @@ revealTargets.forEach((el) => revealObserver.observe(el));
     }
   }
 
-  // Light follows the pointer over the hero; when idle it wanders on its own
-  const light = { x: -0.3, y: 0.1, tx: -0.3, ty: 0.1, lastMove: -Infinity };
+  // Light follows the pointer over the hero; when idle it eases back onto a wander path
+  const IDLE_DELAY = 2500;
+  const RETURN_TIME = 2500;
+  const light = { x: -0.3, y: 0.1, tx: -0.3, ty: 0.1, px: -0.3, py: 0.1, lastMove: -Infinity };
   function pointerToScene(e) {
     const rect = canvas.getBoundingClientRect();
     const cx = e.clientX - rect.left;
@@ -268,6 +270,8 @@ revealTargets.forEach((el) => revealObserver.observe(el));
     if (cx < 0 || cy < 0 || cx > rect.width || cy > rect.height) return;
     light.tx = (cx - 0.5 * rect.width) / rect.height;
     light.ty = (0.5 * rect.height - cy) / rect.height;
+    light.px = light.tx;
+    light.py = light.ty;
     light.lastMove = performance.now();
   }
   window.addEventListener('pointermove', pointerToScene, { passive: true });
@@ -290,10 +294,15 @@ revealTargets.forEach((el) => revealObserver.observe(el));
   const start = performance.now();
   function draw(time) {
     resize();
-    if (performance.now() - light.lastMove > 2500) {
+    const idleFor = performance.now() - light.lastMove - IDLE_DELAY;
+    if (idleFor > 0) {
       const aspect = canvas.width / canvas.height;
-      light.tx = Math.sin(time * 0.23) * 0.3 * aspect + 0.15;
-      light.ty = Math.sin(time * 0.37) * 0.25;
+      const wx = Math.sin(time * 0.23) * 0.3 * aspect + 0.15;
+      const wy = Math.sin(time * 0.37) * 0.25;
+      // Sine ease-in-out from where the pointer left the light onto the wander path
+      const ease = 0.5 - 0.5 * Math.cos(Math.PI * Math.min(idleFor / RETURN_TIME, 1));
+      light.tx = light.px + (wx - light.px) * ease;
+      light.ty = light.py + (wy - light.py) * ease;
     }
     const k = reducedMotion ? 1 : 0.12;
     light.x += (light.tx - light.x) * k;
