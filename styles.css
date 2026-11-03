@@ -101,6 +101,8 @@ ul { margin: 0; }
 .at { color: var(--accent); font-weight: 500; }
 .job__date { font: 13px var(--mono); color: var(--muted); white-space: nowrap; }
 .job__sub { margin: 4px 0 12px; color: var(--muted); font-size: 14px; }
+.job__sub a { color: var(--accent-2); text-decoration: none; }
+.job__sub a:hover { text-decoration: underline; }
 .job p { margin: 0 0 10px; }
 .job > ul:not(.tags), .card > ul:not(.tags) { padding-left: 18px; color: #c3c8cf; }
 .job > ul:not(.tags) li, .card > ul:not(.tags) li { margin-bottom: 6px; }

@@ -162,6 +162,36 @@ window.PROJECTS = [
   },
 
   {
+    id: 'superman-experience',
+    group: 'games',
+    title: 'Superman Experience',
+    kind: 'Schell Games · 2025–26',
+    api: 'UE5',
+    thumb: 'https://i.ytimg.com/vi/jsIBK1LaC3c/maxresdefault.jpg',
+    summary: 'Immersive projection attraction at Warner Bros. Studio Tour Hollywood — nDisplay tooling and an automated high-resolution video pipeline in Unreal Engine 5.',
+    tags: ['Unreal Engine 5', 'nDisplay', 'Jenkins', 'Video Encoding', 'Render Farm', 'Unreal Tools'],
+    links: [{ label: 'Official site', url: 'https://www.supermanexperience.com/' }],
+    body: [
+      { p: 'Superman Experience is an interactive, projection-based attraction at Warner Bros. Studio Tour Hollywood in Burbank, California. I worked on it as a game engineer at Schell Games, focusing on Unreal UI and tools, video encoding and scriptable pipelines.' },
+      { video: 'jsIBK1LaC3c', caption: 'Superman Experience at Warner Bros. Studios — video from DC' },
+      { h: 'In the experience' },
+      { figures: [
+        { src: 'https://www.supermanexperience.com/wp-content/uploads/2026/03/WB_Superman_EXP-10.webp', caption: 'Gameplay — photo from supermanexperience.com' },
+        { src: 'https://www.supermanexperience.com/wp-content/uploads/2026/03/Se_ThunderClap_web.webp', caption: 'Thunder clap — photo from supermanexperience.com' },
+        { src: 'https://www.supermanexperience.com/wp-content/uploads/2026/03/WB_Superman_EXP-24.webp', caption: 'Robot character — photo from supermanexperience.com' },
+      ] },
+      { note: 'Photos and video © Warner Bros. Entertainment Inc. and DC, shown from their official sources.' },
+      { h: 'My contributions' },
+      { list: [
+        'Extended nDisplay tooling to support multiple rendering policies for each selected viewport.',
+        'Built Unreal tools to tackle multi-viewport rendering challenges.',
+        'Automated overnight renders with Jenkins across a multi-machine farm, generating terabytes of high-resolution frames.',
+        'Optimized a super-high-resolution video rendering pipeline supporting multiple codecs.',
+        'Ran output on state-of-the-art projectors via Hive Beeboxes on client hardware.',
+      ] },
+    ],
+  },
+  {
     id: 'krystopia',
     group: 'games',
     title: 'Krystopia: A Puzzle Journey',
