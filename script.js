@@ -27,8 +27,49 @@ document.querySelectorAll('[data-project-group]').forEach((grid) => {
     .join('');
 });
 
+// Recommendations, rendered from recommendations.js. The section stays hidden until there are some.
+const recommendations = window.RECOMMENDATIONS || [];
+if (recommendations.length) {
+  document.getElementById('recommendations').hidden = false;
+  document.querySelector('.nav__links a[href="#recommendations"]').hidden = false;
+  const recGrid = document.querySelector('[data-recommendations]');
+  recGrid.innerHTML = recommendations.map((r, i) => `
+    <figure class="rec">
+      <blockquote class="rec__text" id="rec-${i}">${r.text.split(/\n\s*\n/).map((para) => `<p>${esc(para)}</p>`).join('')}</blockquote>
+      <button class="rec__toggle" type="button" aria-expanded="false" aria-controls="rec-${i}" hidden>Read more</button>
+      <figcaption class="rec__who">
+        <strong>${esc(r.name)}</strong>
+        <span>${esc(r.title)}</span>
+        <span class="rec__meta">${esc(r.relationship)} · ${esc(r.date)}</span>
+      </figcaption>
+    </figure>`).join('');
+  // Long quotes start clamped; only those that actually overflow get a toggle
+  recGrid.querySelectorAll('.rec').forEach((rec) => {
+    const text = rec.querySelector('.rec__text');
+    const toggle = rec.querySelector('.rec__toggle');
+    toggle.hidden = text.scrollHeight <= text.clientHeight + 1;
+    toggle.addEventListener('click', () => {
+      const open = rec.classList.toggle('is-open');
+      toggle.setAttribute('aria-expanded', open);
+      toggle.textContent = open ? 'Show less' : 'Read more';
+    });
+  });
+}
+
+// Skills ticker: the list is rendered twice so the -50% scroll loops without a seam
+const skillIcon = (s) => {
+  if (s.mono) return `<span class="ticker__mono" aria-hidden="true">${esc(s.mono)}</span>`;
+  const shape = s.stroke
+    ? `<path d="${esc(s.stroke)}" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`
+    : `<path d="${esc(s.path)}" fill="currentColor"/>`;
+  return `<svg viewBox="0 0 24 24" aria-hidden="true">${shape}</svg>`;
+};
+const tickerItems = (window.SKILL_ICONS || []).map((s) => `<li>${skillIcon(s)}<span>${esc(s.name)}</span></li>`).join('');
+document.querySelector('[data-skill-ticker]').innerHTML =
+  `<ul>${tickerItems}</ul><ul aria-hidden="true">${tickerItems}</ul>`;
+
 // Reveal sections as they enter the viewport
-const revealTargets = document.querySelectorAll('.job, .card, .skill, .edu__item');
+const revealTargets = document.querySelectorAll('.job, .card, .skill, .edu__item, .rec');
 revealTargets.forEach((el) => el.classList.add('reveal'));
 const revealObserver = new IntersectionObserver((entries) => {
   for (const entry of entries) {

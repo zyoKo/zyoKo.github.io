@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=4">
+  <link rel="stylesheet" href="styles.css?v=5">
 </head>
 <body>
   <header class="nav">
@@ -22,6 +22,7 @@
       <a href="#projects">Projects</a>
       <a href="#skills">Skills</a>
       <a href="#education">Education</a>
+      <a href="#recommendations" hidden>Recommendations</a>
       <a href="#contact">Contact</a>
     </nav>
   </header>
@@ -40,7 +41,7 @@
         </p>
         <div class="hero__cta">
           <a class="btn btn--primary" href="#projects">View work</a>
-          <a class="btn" href="assets/Vatsalya_Yadav_Resume.pdf?v=3" download>Download résumé</a>
+          <a class="btn" href="assets/Vatsalya_Yadav_Resume.pdf?v=4" download>Download résumé</a>
         </div>
         <ul class="hero__meta">
           <li>Pittsburgh, PA</li>
@@ -55,17 +56,35 @@
         <li class="job">
           <div class="job__head">
             <h3>Game Engineer <span class="at">@ Schell Games</span></h3>
-            <span class="job__date">Dec 2025 — Oct 2026</span>
+            <span class="job__date">Mar 2026 — Oct 2026</span>
           </div>
-          <p class="job__sub">Unannounced Immersive Projection Experience</p>
+          <p class="job__sub">Unannounced Immersive Projection Experience · Pittsburgh, PA</p>
+          <ul>
+            <li>Profiled CPU and GPU workloads with in-house performance tools to sustain a stable 60 FPS across multi-viewport nDisplay rendering.</li>
+            <li>Drove rendering pipeline decisions and integrated new features into Unreal's graphics pipeline.</li>
+            <li>Implemented automation tests for shipping builds to constantly monitor game performance in each level.</li>
+            <li>Managed GAS architecture to align the team's goals and reduce code redundancy in new gameplay features.</li>
+            <li>Developed custom editor tools that let designers tune gameplay without engineering support.</li>
+            <li>Co-led AngelScript integration into the in-house Unreal fork, enabling hot-reloadable gameplay scripting and eliminating C++ recompiles for most iterations.</li>
+            <li>Exposed engine and gameplay systems such as GAS to AngelScript through script bindings.</li>
+          </ul>
+          <ul class="tags"><li>Unreal Engine 5</li><li>nDisplay</li><li>AngelScript</li><li>GAS</li><li>Rendering Pipeline</li><li>Profiling</li><li>Automation Testing</li><li>Editor Tools</li></ul>
+        </li>
+
+        <li class="job">
+          <div class="job__head">
+            <h3>Game Engineer <span class="at">@ Schell Games</span></h3>
+            <span class="job__date">Dec 2025 — Mar 2026</span>
+          </div>
+          <p class="job__sub">Superman Experience · WB Studios, Burbank, CA</p>
           <p>Unreal UI and tools, video encoding techniques and scriptable pipelines for a large-format location-based experience.</p>
           <ul>
-            <li>Extending nDisplay tooling to support multiple rendering policies, and building Unreal tools for multi-viewport rendering challenges.</li>
-            <li>Automating overnight high-resolution render jobs across multiple machines with Jenkins.</li>
-            <li>Optimizing a super-high-resolution video rendering pipeline supporting multiple codecs.</li>
-            <li>Running output on state-of-the-art projectors via Hive Beeboxes on client hardware.</li>
+            <li>Extended nDisplay tooling to support multiple rendering policies for each selected viewport, and built Unreal tools for multi-viewport rendering challenges.</li>
+            <li>Automated overnight renders with Jenkins across a multi-machine farm, generating terabytes of high-resolution frames.</li>
+            <li>Optimized a super-high-resolution video rendering pipeline supporting multiple codecs.</li>
+            <li>Ran output on state-of-the-art projectors via Hive Beeboxes on client hardware.</li>
           </ul>
-          <ul class="tags"><li>Unreal Engine 5</li><li>nDisplay</li><li>Jenkins</li><li>Video Encoding</li></ul>
+          <ul class="tags"><li>Unreal Engine 5</li><li>nDisplay</li><li>Jenkins</li><li>Video Encoding</li><li>Render Farm</li><li>Unreal Tools</li></ul>
         </li>
 
         <li class="job">
@@ -180,19 +199,19 @@
         </div>
         <div class="skill">
           <h3>Languages</h3>
-          <ul class="tags"><li>C / C++</li><li>C#</li><li>Lua</li><li>Python</li></ul>
+          <ul class="tags"><li>C / C++</li><li>C#</li><li>Lua</li><li>Python</li><li>AngelScript</li></ul>
         </div>
         <div class="skill">
           <h3>Engines</h3>
-          <ul class="tags"><li>Unreal Engine 5</li><li>Unity3D</li><li>Cocos2d-x</li></ul>
+          <ul class="tags"><li>Unreal Engine 5</li><li>nDisplay</li><li>Gameplay Ability System</li><li>Editor Tools</li><li>Unity3D</li><li>Cocos2d-x</li></ul>
         </div>
         <div class="skill">
           <h3>GPU &amp; Dev Tools</h3>
-          <ul class="tags"><li>RenderDoc</li><li>Nsight</li><li>Visual Studio</li><li>Xcode</li><li>Rider</li><li>Git</li></ul>
+          <ul class="tags"><li>RenderDoc</li><li>Nsight</li><li>CPU / GPU Profiling</li><li>Visual Studio</li><li>Xcode</li><li>Rider</li><li>Git (GitHub / GitLab)</li></ul>
         </div>
         <div class="skill">
-          <h3>Build &amp; Automation</h3>
-          <ul class="tags"><li>CMake</li><li>Premake</li><li>GitHub CI/CD</li><li>Jenkins</li><li>Jira</li></ul>
+          <h3>Pipelines &amp; Automation</h3>
+          <ul class="tags"><li>CMake</li><li>Premake</li><li>GitHub CI/CD</li><li>Jenkins</li><li>Automation Testing</li><li>Video Encoding</li><li>Jira</li></ul>
         </div>
         <div class="skill">
           <h3>Math &amp; Physics</h3>
@@ -217,16 +236,24 @@
       </div>
     </section>
 
+    <section id="recommendations" class="section wrap" hidden>
+      <h2 class="section__title"><span>05</span>Recommendations</h2>
+      <div class="recs" data-recommendations></div>
+      <a class="recs__more" href="https://www.linkedin.com/in/vatsalya-yd/" target="_blank" rel="noopener">View on LinkedIn ↗</a>
+    </section>
+
     <section id="contact" class="section wrap contact">
-      <h2 class="section__title"><span>05</span>Contact</h2>
+      <h2 class="section__title"><span>06</span>Contact</h2>
       <p class="contact__lede">Open to graphics, engine and tools roles. The fastest way to reach me is email.</p>
       <div class="hero__cta">
         <a class="btn btn--primary" href="mailto:vatsalya.yd@gmail.com">vatsalya.yd@gmail.com</a>
         <a class="btn" href="https://www.linkedin.com/in/vatsalya-yd/" target="_blank" rel="noopener">LinkedIn</a>
-        <a class="btn" href="assets/Vatsalya_Yadav_Resume.pdf?v=3" download>Résumé (PDF)</a>
+        <a class="btn" href="assets/Vatsalya_Yadav_Resume.pdf?v=4" download>Résumé (PDF)</a>
       </div>
     </section>
   </main>
+
+  <aside class="ticker" aria-label="Skills"><div class="ticker__track" data-skill-ticker></div></aside>
 
   <footer class="footer wrap">
     <span>© <span id="year">2026</span> Vatsalya Yadav</span>
@@ -234,6 +261,8 @@
   </footer>
 
   <script src="projects.js?v=2"></script>
-  <script src="script.js?v=6"></script>
+  <script src="skills.js?v=1"></script>
+  <script src="recommendations.js?v=1"></script>
+  <script src="script.js?v=7"></script>
 </body>
 </html>
