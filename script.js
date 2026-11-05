@@ -11,19 +11,30 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 document.querySelectorAll('[data-project-group]').forEach((grid) => {
   grid.innerHTML = (window.PROJECTS || [])
     .filter((p) => p.group === grid.dataset.projectGroup)
-    .map((p) => `
-      <a class="card card--link" href="project.html?id=${encodeURIComponent(p.id)}">
-        <div class="card__thumb${p.thumb ? '' : ' card__thumb--empty'}">
-          ${p.thumb ? `<img src="${esc(p.thumb)}" alt="" loading="lazy">` : `<span>${esc(p.api)}</span>`}
-        </div>
+    .map((p) => {
+      const inner = `
         <div class="card__top">
           <span class="card__kind">${esc(p.kind)}</span>
           <span class="card__api">${esc(p.api)}</span>
         </div>
         <h3>${esc(p.title)}</h3>
         <p>${esc(p.summary)}</p>
-        <ul class="tags">${p.tags.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
-      </a>`)
+        <ul class="tags">${p.tags.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
+      if (p.locked) {
+        return `
+      <article class="card card--locked">
+        <div class="card__thumb card__thumb--empty card__thumb--stack"><span>NDA</span></div>
+        ${inner}
+      </article>`;
+      }
+      return `
+      <a class="card card--link" href="project.html?id=${encodeURIComponent(p.id)}">
+        <div class="card__thumb${p.thumb ? '' : ' card__thumb--empty'}">
+          ${p.thumb ? `<img src="${esc(p.thumb)}" alt="" loading="lazy">` : `<span>${esc(p.api)}</span>`}
+        </div>
+        ${inner}
+      </a>`;
+    })
     .join('');
 });
 

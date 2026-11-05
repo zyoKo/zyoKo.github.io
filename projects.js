@@ -269,4 +269,15 @@ window.PROJECTS = [
       ] },
     ],
   },
+  {
+    // Locked: a card on the homepage with no detail page
+    id: 'nda',
+    group: 'games',
+    locked: true,
+    title: 'NDA Projects',
+    kind: 'Multiple projects',
+    api: 'Confidential',
+    summary: 'Several projects covered by non-disclosure agreements, so the details stay off this site for now.',
+    tags: [],
+  },
 ];

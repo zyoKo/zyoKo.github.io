@@ -147,6 +147,18 @@ ul { margin: 0; }
     radial-gradient(circle at 70% 40%, rgba(255,138,61,.25), transparent 60%), #0f1216;
 }
 .card__thumb--empty span { font: 500 14px var(--mono); color: var(--muted); }
+.card--locked { padding-top: 0; overflow: hidden; }
+.card--locked:hover { border-color: var(--line); transform: none; }
+/* A pile of frames: the label is the front one, its shadows are the two behind it */
+.card__thumb--stack span {
+  display: grid; place-items: center; width: 42%; aspect-ratio: 16 / 10;
+  transform: translate(-10px, 10px);
+  color: var(--text); letter-spacing: .14em;
+  background: #1a1f26; border: 1px solid #434b57; border-radius: 8px;
+  box-shadow:
+    10px -10px 0 -1px #151a20, 10px -10px 0 0 #343b46,
+    20px -20px 0 -1px #11151a, 20px -20px 0 0 #2a3038;
+}
 .group__title {
   font: 500 13px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .08em;
   margin: 0 0 16px;

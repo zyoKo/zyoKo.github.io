@@ -2,7 +2,7 @@
 document.getElementById('year').textContent = new Date().getFullYear();
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const projects = window.PROJECTS || [];
+const projects = (window.PROJECTS || []).filter((p) => !p.locked);
 const id = new URLSearchParams(location.search).get('id');
 const index = projects.findIndex((p) => p.id === id);
 const root = document.getElementById('project');

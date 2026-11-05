@@ -1,0 +1,10 @@
+#!/bin/sh
+# Stamps version tags before each commit. The stamped files get staged whole, so
+# stop if that would sweep in HTML edits that weren't meant for this commit.
+if ! git diff --quiet -- '*.html' version.json; then
+  echo "pre-commit: unstaged HTML changes. Stage or stash them, then commit again." >&2
+  exit 1
+fi
+
+python tools/stamp.py || exit 1
+git add -- '*.html' version.json
